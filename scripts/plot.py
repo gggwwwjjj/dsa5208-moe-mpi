@@ -175,8 +175,8 @@ def fig_e3(tables: pathlib.Path, out: pathlib.Path, plat: str = "vanda") -> None
         ax.set_xlabel("CPU cores")
         style(ax)
     ax1.set_yscale("log", base=2)
-    ax1.set_ylabel("speedup T_1 / T_P")
-    ax2.set_ylabel("parallel efficiency T_1 / (P T_P)")
+    ax1.set_ylabel(r"speedup $T_1 / T_P$")
+    ax2.set_ylabel(r"parallel efficiency $T_1 / (P\,T_P)$")
     ax1.legend(fontsize=7)
     # phase shares of the MoE (MPI_Allreduce) step
     sel = series[0][1] if series else []
@@ -287,7 +287,7 @@ def fig_e6(tables: pathlib.Path, out: pathlib.Path, plat: str = "atlas") -> None
         axes[0].plot([int(r["step"]) for r in sel], [float(r["imbalance"]) for r in sel], marker=MARKERS[i],
                      color=SERIES[i], lw=1.5, ms=3, label=f"aux weight {aux}")
     axes[0].axhline(8, color="k", ls=":", lw=1)
-    axes[0].text(5, 7.6, "maximum E/k = 8", fontsize=7)
+    axes[0].text(600, 7.75, "maximum E/k = 8", fontsize=7, ha="center", va="top")
     axes[0].set_xlabel("training step (B = 256)")
     axes[0].set_ylabel("max / mean tokens per expert")
     axes[0].legend(fontsize=7)
@@ -614,13 +614,20 @@ def fig_e11_similarity(tables: pathlib.Path, out: pathlib.Path) -> None:
         from scipy.stats import spearmanr
         rho = spearmanr(x, y)[0]
         ax.scatter(x, y + 1, color=SERIES[0], s=18)
-        for n, k in enumerate(np.argsort(-y)[:5]):
-            ax.annotate(f"{CLASSES[iu[0][k]]}-{CLASSES[iu[1][k]]}", (x[k], y[k] + 1), fontsize=6.5,
-                        xytext=(-4, {0: 12, 2: -10}.get(n, 4)), textcoords="offset points", ha="right")
+        # number the five most confused pairs next to their points and name them in a key (no crossing labels)
+        top = sorted(np.argsort(-y)[:5], key=lambda k: -(y[k]))
+        key = []
+        for n, k in enumerate(top, 1):
+            ax.scatter([x[k]], [y[k] + 1], s=60, facecolors="none", edgecolors="#333333", linewidths=0.8)
+            ax.annotate(str(n), (x[k], y[k] + 1), xytext=(-7, 5), textcoords="offset points", fontsize=7,
+                        ha="right", fontweight="bold")
+            key.append(f"{n}  {CLASSES[iu[0][k]]}\u2013{CLASSES[iu[1][k]]} ({int(y[k])})")
+        ax.text(0.02, 0.97, "most confused pairs:\n" + "\n".join(key), transform=ax.transAxes, fontsize=6.5,
+                va="top", ha="left", color="#333333")
         ax.set_yscale("log")
         ax.set_ylim(0.7, (y.max() + 1) * 3)
         ax.set_xlabel("routing similarity of the two classes")
-        ax.set_title(f"MoE layer {layer + 1} (Spearman rho = {rho:.2f}, 45 pairs)", fontsize=9)
+        ax.set_title(f"MoE layer {layer + 1} (Spearman \u03c1 = {rho:.2f}, 45 pairs)", fontsize=9)
         style(ax)
     axes[0].set_ylabel("test images confused (both ways) + 1")
     fig.tight_layout()

@@ -100,9 +100,9 @@ def ep_diagram():
         for j in range(recv[r]):
             ax.add_patch(FancyBboxPatch((x4 + 0.05 + j * W, y + 0.25), W * 0.8, 0.6, boxstyle="square,pad=0",
                                         fc=cols[r], ec="white", lw=0.5))
-        box(ax, x4, y - 0.02, 3.6, 1.14, "", fc="none", ec="#888888")
-        ax.text(x4 + 1.8, y - 0.3, f"experts {4 * r + 1}-{4 * r + 4}: {recv[r]} rows", ha="center", fontsize=7.5,
-                color=ORANGE if r == 0 else "#444444", fontweight="bold" if r == 0 else "normal")
+        box(ax, x4, y + 0.12, 3.6, 0.88, "", fc="none", ec="#888888")
+        ax.text(x4 + 1.8, y + 0.02, f"experts {4 * r + 1}-{4 * r + 4}: {recv[r]} rows", ha="center", fontsize=7.5,
+                color=ORANGE if r == 0 else "#444444", fontweight="bold" if r == 0 else "normal", va="top")
         for j in range(8):
             ax.add_patch(FancyBboxPatch((x5 + j * W, y + 0.25), W * 0.8, 0.6, boxstyle="square,pad=0",
                                         fc="#e3f5ec", ec="#7fbf9f", lw=0.6))

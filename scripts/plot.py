@@ -177,7 +177,7 @@ def fig_e3(tables: pathlib.Path, out: pathlib.Path, plat: str = "vanda") -> None
     ax1.set_yscale("log", base=2)
     ax1.set_ylabel(r"speedup $T_1 / T_P$")
     ax2.set_ylabel(r"parallel efficiency $T_1 / (P\,T_P)$")
-    ax1.legend(fontsize=7)
+    ax1.legend(fontsize=8.5)
     # phase shares of the MoE (MPI_Allreduce) step
     sel = series[0][1] if series else []
     if sel:
@@ -190,7 +190,7 @@ def fig_e3(tables: pathlib.Path, out: pathlib.Path, plat: str = "vanda") -> None
         ax3.set_xlabel("CPU cores (MoE, MPI_Allreduce)")
         ax3.set_ylabel("share of step time")
         ax3.set_ylim(0, 1)
-        ax3.legend(fontsize=7, loc="upper left", bbox_to_anchor=(1.0, 1.0))
+        ax3.legend(fontsize=8.5, loc="upper left", bbox_to_anchor=(1.0, 1.0))
         style(ax3)
     fig.tight_layout()
     fig.savefig(out / f"e3_strong_{plat}.png", dpi=200)
@@ -251,7 +251,7 @@ def fig_e5(tables: pathlib.Path, out: pathlib.Path, plat: str = "vanda") -> None
         ax.set_xlabel("message size (bytes)")
         ax.set_ylabel("time per all-reduce (s)")
         ax.set_title(title, fontsize=9)
-        ax.legend(fontsize=7)
+        ax.legend(fontsize=8.5)
         style(ax)
     a2a = [r for r in rows if r.get("kind", "").startswith("ep_")]
     for i, (variant, label) in enumerate((("mpi", "MPI_Alltoallv"), ("pairwise", "pairwise Isend/Irecv"))):
@@ -263,7 +263,7 @@ def fig_e5(tables: pathlib.Path, out: pathlib.Path, plat: str = "vanda") -> None
     axes[2].set_yscale("log")
     axes[2].set_xlabel("ranks (E3 problem)")
     axes[2].set_ylabel("token exchange per step, excl. waiting (s)")
-    axes[2].legend(fontsize=7)
+    axes[2].legend(fontsize=8.5)
     style(axes[2])
     fig.tight_layout()
     fig.savefig(out / f"e5_comm_{plat}.png", dpi=200)
@@ -290,7 +290,7 @@ def fig_e6(tables: pathlib.Path, out: pathlib.Path, plat: str = "atlas") -> None
     axes[0].text(600, 7.75, "maximum E/k = 8", fontsize=7, ha="center", va="top")
     axes[0].set_xlabel("training step (B = 256)")
     axes[0].set_ylabel("max / mean tokens per expert")
-    axes[0].legend(fontsize=7)
+    axes[0].legend(fontsize=8.5)
     for i, cf in enumerate(["1.0", "1.25", "2.0"]):
         vals = []
         for aux in auxes:
@@ -301,7 +301,7 @@ def fig_e6(tables: pathlib.Path, out: pathlib.Path, plat: str = "atlas") -> None
     axes[1].set_xticks(range(3))
     axes[1].set_xticklabels([f"aux {a}" for a in auxes])
     axes[1].set_ylabel("share of assignments dropped (k = 2)")
-    axes[1].legend(fontsize=7)
+    axes[1].legend(fontsize=8.5)
     for i, aux in enumerate(auxes):
         acc = [float(r["test_acc"]) * 100 for r in rows if key(r["log"])[:3] == (aux, "1.25", "2")]
         axes[2].plot([i] * len(acc), acc, marker=MARKERS[i], color=SERIES[i], ls="none", ms=6)

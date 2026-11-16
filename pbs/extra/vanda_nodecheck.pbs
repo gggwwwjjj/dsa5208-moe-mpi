@@ -1,0 +1,23 @@
+#!/bin/bash
+# Node-to-node speed check (submit once per node with -v NODE=<host> and
+# -l select=1:...:host=<host>): the same single-node runs on each node, to tell
+# whether slow multi-node runs come from GPU nodes in the cpu pool or from
+# individual slow nodes. E3 problem at 64 ranks (MoE, MPI_Allreduce), dense
+# reference at 64 ranks, and the one-core GEMM benchmark.
+#PBS -N NODECHK
+#PBS -P <project>
+#PBS -l walltime=00:15:00
+#PBS -l place=excl
+#PBS -j oe
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a > /dev/null 2>&1
+H=$(hostname -s); O=results/raw/NODECHK/$H; mkdir -p $O
+echo "job $PBS_JOBID on $H"; lscpu | grep "Model name"
+MPI="mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1"
+$MPI build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 \
+    --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp NODECHK > $O/moe_p64.log 2>&1
+$MPI build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp NODECHK > $O/dense_p64.log 2>&1
+OMP_NUM_THREADS=1 build/vanda-float/gemm_bench --max-n 1024 | sed 's/exp=E0/exp=NODECHK/' > $O/gemm.log 2>&1
+grep -ho "t_step_mean=[^ ]*" $O/*.log; grep "n=1024" $O/gemm.log
+echo "$(date +%T) done"

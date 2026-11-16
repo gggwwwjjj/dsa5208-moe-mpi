@@ -1,0 +1,13 @@
+# data are downloaded by `make data`; build outputs and large run artefacts are not tracked
+data/
+build/
+report/build/
+results/raw/
+results/ckpt/
+pbs/generated/
+notes/
+.venv*/
+__pycache__/
+*.pyc
+.DS_Store
+report/

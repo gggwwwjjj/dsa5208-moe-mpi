@@ -1,0 +1,2 @@
+exp,kind,ranks,threads,ep,groups,data,batch,hidden,ffn,blocks,experts,topk,capacity,optim,timed_steps,t_step_mean,t_step_median,t_step_max,t_compute,t_a2a_wait,t_a2a,t_wait,t_comm,t_optim,t_data,gflops,train_loss,test_acc,aux,imbalance,cv_load,dropped,real,log,platform
+CKPT,ep_mpi_mpi,16,1,16,1,synthetic,256,512,1024,2,16,2,1.25,adam,230,7.397984e-02,7.306800e-02,7.398524e-02,4.180856e-02,0.000000e+00,1.294260e-02,2.294359e-04,2.168854e-03,1.683039e-02,1.150273e-04,95.865,1.572167,-1.0000,0.21472,4.3023,0.9553,0.21445,float,ckpt_moe_E16.log,atlas

@@ -1,0 +1,35 @@
+#!/bin/bash
+# Two Vanda cn nodes (exclusive). (1) E3 serial baseline again with the same
+# step window as the parallel runs (15 steps, 5 warm-up; the first run used 8/2,
+# so its load imbalance was averaged over other steps). (2) Contention: k pairs
+# ping-pong at the same time, inside one node and across the two nodes
+# (bench/pingpong --concurrent), to explain why collectives at 128-256 ranks are
+# slower than the alpha-beta model built from one isolated pair.
+#PBS -N CONTEND
+#PBS -P <project>
+#PBS -l select=2:ncpus=72:mpiprocs=72:mem=500gb
+#PBS -l place=scatter:excl
+#PBS -l walltime=00:40:00
+#PBS -j oe
+#PBS -o results/raw/E0/contention.job.log
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a > /dev/null 2>&1
+echo "job $PBS_JOBID on $(sort -u "$PBS_NODEFILE" | tr '\n' ' ')"
+# pingpong.cpp changed (--concurrent): rebuild both precisions
+make -j16 PLATFORM=vanda > results/raw/E0/contention_build.log 2>&1 && \
+make -j16 PLATFORM=vanda REAL=double tests parallel serial >> results/raw/E0/contention_build.log 2>&1 || { echo "BUILD FAILED"; exit 1; }
+echo "$(date +%T) e3_serial15"
+build/vanda-float/mlp_serial --data synthetic --experts 16 --capacity 2.0 --batch 16384 \
+    --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --warmup 5 --exp E3 > results/raw/E3/e3_serial15.log 2>&1
+MPI="mpirun --mca pml ob1 --mca btl self,vader,tcp --bind-to none"
+for k in 1 2 4 8 16 32 64; do
+  echo "$(date +%T) inter k=$k"
+  $MPI -np $((2 * k)) --map-by ppr:$k:node build/vanda-float/pingpong --concurrent > results/raw/E0/conc_inter_k$k.log 2>&1
+done
+H=$(sort -u "$PBS_NODEFILE" | head -1)
+for k in 1 2 4 8 16 32; do
+  echo "$(date +%T) intra k=$k"
+  $MPI -np $((2 * k)) --host $H:$((2 * k)) build/vanda-float/pingpong --concurrent > results/raw/E0/conc_intra_k$k.log 2>&1
+done
+echo "$(date +%T) done"

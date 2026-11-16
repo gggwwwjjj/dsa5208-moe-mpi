@@ -1,0 +1,9 @@
+exp,epoch,step,train_loss,train_acc,test_loss,test_acc,aux,imbalance,cv,dropped,log,platform
+EXTRA,0,7,0.682021,0.7513,0.000000,-1.0000,0.20351,2.5301,0.5546,0.05678,gap_parallel_np1_r1.log,vanda
+EXTRA,0,7,0.682021,0.7513,0.000000,-1.0000,0.20351,2.5301,0.5546,0.05678,gap_parallel_np1_r2.log,vanda
+EXTRA,0,7,0.682021,0.7513,0.000000,-1.0000,0.20351,2.5301,0.5546,0.05678,gap_serial_fopenmp_r1.log,vanda
+EXTRA,0,7,0.682021,0.7513,0.000000,-1.0000,0.20351,2.5301,0.5546,0.05678,gap_serial_fopenmp_r2.log,vanda
+EXTRA,0,7,0.682021,0.7513,0.000000,-1.0000,0.20351,2.5301,0.5546,0.05678,gap_serial_r1.log,vanda
+EXTRA,0,7,0.682021,0.7513,0.000000,-1.0000,0.20351,2.5301,0.5546,0.05678,gap_serial_r2.log,vanda
+EXTRA,0,7,0.682434,0.7510,0.000000,-1.0000,0.20351,2.5292,0.5545,0.05674,native_serial_r1.log,vanda
+EXTRA,0,7,0.682434,0.7510,0.000000,-1.0000,0.20351,2.5292,0.5545,0.05674,native_serial_r2.log,vanda

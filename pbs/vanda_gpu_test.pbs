@@ -1,0 +1,45 @@
+#!/bin/bash
+# Stage C correctness on Vanda A40 (plan §6): build the CUDA backend, GPU GEMM vs
+# host loop, gradient check on the GPU, and CPU vs GPU training (serial and
+# 2-GPU expert parallel) after 20 SGD steps with capacity drops, < 1e-10 in
+# double. Then a first look at speed. Submit from the Project3 directory.
+#PBS -N gpu_test
+#PBS -P <project>
+#PBS -l select=1:ncpus=36:ngpus=2:mem=240gb
+#PBS -l walltime=00:45:00
+#PBS -j oe
+#PBS -o results/raw/GPU/gpu_test.job.log
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a CUDA/12.1.1 > /dev/null 2>&1
+nvidia-smi -L; nvcc --version | tail -2
+make -j16 PLATFORM=vanda BACKEND=cuda > results/raw/GPU/build_cuda.log 2>&1 &&
+make -j16 PLATFORM=vanda BACKEND=cuda REAL=double tests parallel serial >> results/raw/GPU/build_cuda.log 2>&1 || { echo "BUILD FAILED"; tail -30 results/raw/GPU/build_cuda.log; exit 1; }
+grep -E "warning" results/raw/GPU/build_cuda.log | head -5
+
+G=build/vanda-cuda-double; C=build/vanda-double; T=$(mktemp -d)
+MPI="mpirun --mca pml ob1 --mca btl self,vader,tcp --oversubscribe -x OMP_NUM_THREADS=1"
+$G/test_gemm_serial
+$G/test_gradcheck
+cmp_run() {  # label, options: CPU serial vs GPU serial vs 2-GPU EP
+    local label=$1; shift
+    $C/mlp_serial "$@" --groups 1 --dump $T/cpu.bin --quiet > /dev/null
+    $G/mlp_serial "$@" --groups 1 --dump $T/gpu.bin --quiet > /dev/null
+    echo "$label CPU vs GPU serial: $($C/compare_params $T/cpu.bin $T/gpu.bin 1e-10)"
+    $MPI -np 2 $G/mlp_parallel "$@" --ep 2 --dump $T/gpu2.bin --quiet > /dev/null
+    echo "$label CPU serial vs 2-GPU EP: $($C/compare_params $T/cpu.bin $T/gpu2.bin 1e-10)"
+}
+X="--optim sgd --lr 0.05 --steps 20 --warmup 0 --data synthetic --blocks 2 --aux 0.05"
+cmp_run "small top-2 drops" $X --batch 64 --hidden 32 --ffn 48 --experts 4 --topk 2 --capacity 1.0
+cmp_run "odd sizes top-1" $X --batch 256 --hidden 100 --ffn 300 --experts 8 --topk 1 --capacity 1.25
+$C/mlp_serial $X --batch 64 --hidden 32 --ffn 48 --experts 1 --dump $T/cpu.bin --quiet > /dev/null
+$G/mlp_serial $X --batch 64 --hidden 32 --ffn 48 --experts 1 --dump $T/gpu.bin --quiet > /dev/null
+echo "dense CPU vs GPU serial: $($C/compare_params $T/cpu.bin $T/gpu.bin 1e-10)"
+
+echo "--- speed (float, development look)"
+F=build/vanda-cuda-float
+$F/gemm_bench --max-n 4096 2>&1 | grep RESULT | tail -6
+P="--data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 8 --warmup 2 --exp GPUDEV"
+$F/mlp_serial $P | grep RESULT
+$MPI -np 2 $F/mlp_parallel $P --a2a-wait | grep RESULT
+echo "done $(date +%T)"

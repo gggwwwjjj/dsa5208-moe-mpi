@@ -1,0 +1,72 @@
+#!/bin/bash
+# Repetitions (plan D14: key points repeated, median reported). Multi-node and
+# full-node runs vary by 10-25 % between runs (no core binding on Vanda: binding
+# hangs MPI_Init), so the E3 points at 64, 128 and 256 ranks (MoE with both
+# all-reduce variants, dense) are run three more times, interleaved, on the same
+# four cn nodes as P256CN. 64 and 128 ranks use the first one and two nodes.
+#PBS -N E3REP
+#PBS -P <project>
+#PBS -l select=1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-066+1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-143+1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-146+1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-156
+#PBS -l walltime=00:50:00
+#PBS -l place=scatter:excl
+#PBS -j oe
+#PBS -o results/raw/E3/E3REP.job.log
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a > /dev/null 2>&1
+echo "job $PBS_JOBID on $(sort -u "$PBS_NODEFILE" | tr '\n' ' ')"
+echo "$(date +%T) e3_p256_mpi_r1"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_mpi_r1.log 2>&1 || echo "FAILED e3_p256_mpi_r1"
+echo "$(date +%T) e3_p256_ring_r1"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_ring_r1.log 2>&1 || echo "FAILED e3_p256_ring_r1"
+echo "$(date +%T) e3_p256_dense_r1"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p256_dense_r1.log 2>&1 || echo "FAILED e3_p256_dense_r1"
+echo "$(date +%T) e3_p128_mpi_r1"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p128_mpi_r1.log 2>&1 || echo "FAILED e3_p128_mpi_r1"
+echo "$(date +%T) e3_p128_ring_r1"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p128_ring_r1.log 2>&1 || echo "FAILED e3_p128_ring_r1"
+echo "$(date +%T) e3_p128_dense_r1"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p128_dense_r1.log 2>&1 || echo "FAILED e3_p128_dense_r1"
+echo "$(date +%T) e3_p64_mpi_r1"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p64_mpi_r1.log 2>&1 || echo "FAILED e3_p64_mpi_r1"
+echo "$(date +%T) e3_p64_ring_r1"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p64_ring_r1.log 2>&1 || echo "FAILED e3_p64_ring_r1"
+echo "$(date +%T) e3_p64_dense_r1"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p64_dense_r1.log 2>&1 || echo "FAILED e3_p64_dense_r1"
+echo "$(date +%T) e3_p256_mpi_r2"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_mpi_r2.log 2>&1 || echo "FAILED e3_p256_mpi_r2"
+echo "$(date +%T) e3_p256_ring_r2"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_ring_r2.log 2>&1 || echo "FAILED e3_p256_ring_r2"
+echo "$(date +%T) e3_p256_dense_r2"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p256_dense_r2.log 2>&1 || echo "FAILED e3_p256_dense_r2"
+echo "$(date +%T) e3_p128_mpi_r2"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p128_mpi_r2.log 2>&1 || echo "FAILED e3_p128_mpi_r2"
+echo "$(date +%T) e3_p128_ring_r2"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p128_ring_r2.log 2>&1 || echo "FAILED e3_p128_ring_r2"
+echo "$(date +%T) e3_p128_dense_r2"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p128_dense_r2.log 2>&1 || echo "FAILED e3_p128_dense_r2"
+echo "$(date +%T) e3_p64_mpi_r2"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p64_mpi_r2.log 2>&1 || echo "FAILED e3_p64_mpi_r2"
+echo "$(date +%T) e3_p64_ring_r2"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p64_ring_r2.log 2>&1 || echo "FAILED e3_p64_ring_r2"
+echo "$(date +%T) e3_p64_dense_r2"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p64_dense_r2.log 2>&1 || echo "FAILED e3_p64_dense_r2"
+echo "$(date +%T) e3_p256_mpi_r3"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_mpi_r3.log 2>&1 || echo "FAILED e3_p256_mpi_r3"
+echo "$(date +%T) e3_p256_ring_r3"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_ring_r3.log 2>&1 || echo "FAILED e3_p256_ring_r3"
+echo "$(date +%T) e3_p256_dense_r3"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p256_dense_r3.log 2>&1 || echo "FAILED e3_p256_dense_r3"
+echo "$(date +%T) e3_p128_mpi_r3"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p128_mpi_r3.log 2>&1 || echo "FAILED e3_p128_mpi_r3"
+echo "$(date +%T) e3_p128_ring_r3"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p128_ring_r3.log 2>&1 || echo "FAILED e3_p128_ring_r3"
+echo "$(date +%T) e3_p128_dense_r3"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p128_dense_r3.log 2>&1 || echo "FAILED e3_p128_dense_r3"
+echo "$(date +%T) e3_p64_mpi_r3"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p64_mpi_r3.log 2>&1 || echo "FAILED e3_p64_mpi_r3"
+echo "$(date +%T) e3_p64_ring_r3"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p64_ring_r3.log 2>&1 || echo "FAILED e3_p64_ring_r3"
+echo "$(date +%T) e3_p64_dense_r3"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p64_dense_r3.log 2>&1 || echo "FAILED e3_p64_dense_r3"
+echo "$(date +%T) done"

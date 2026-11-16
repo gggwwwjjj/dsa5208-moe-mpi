@@ -1,0 +1,2 @@
+exp,epoch,step,train_loss,train_acc,test_loss,test_acc,aux,imbalance,cv,dropped,log,platform
+CKPT,0,235,1.572167,0.4466,0.000000,-1.0000,0.21472,4.3023,0.9553,0.21445,ckpt_moe_E16.log,atlas

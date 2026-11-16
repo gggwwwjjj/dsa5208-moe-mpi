@@ -1,0 +1,16 @@
+#!/bin/bash
+# Vanda GPU job template (Stage B). GPU budget: <= 20 GPU-hours in total, every
+# job walltime <= 30 min (plan §8.3). Queue name is TODO until `hpc gpu`.
+#PBS -N ${NAME}
+#PBS -q ${QUEUE}
+#PBS -l select=${NODES}:ncpus=${NCPUS}:ngpus=${NGPUS}:mpiprocs=${MPIPROCS}:mem=${MEM}
+#PBS -l walltime=${WALLTIME}
+#PBS -j oe
+#PBS -o ${LOGDIR}/${NAME}.log
+
+cd "$PBS_O_WORKDIR"
+module load ${MODULES}
+
+echo "job $PBS_JOBID on $(sort -u "$PBS_NODEFILE" | tr '\n' ' ')"
+nvidia-smi --query-gpu=name,memory.total --format=csv
+${COMMANDS}

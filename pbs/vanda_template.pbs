@@ -1,0 +1,19 @@
+#!/bin/bash
+# Vanda CPU job template, filled in by scripts/sweep.py (${...} fields). One job
+# runs all runs of an experiment that need the same number of nodes; every run
+# sets its own ranks and threads (mpirun -np R --map-by slot:PE=T).
+#PBS -N ${NAME}
+${QUEUE_LINE}
+#PBS -l select=${SELECT}
+#PBS -l walltime=${WALLTIME}
+# timing jobs hold whole nodes (excl): other jobs on the node would distort timings
+#PBS -l place=${PLACE}
+#PBS -j oe
+#PBS -o ${LOGDIR}/${NAME}.job.log
+
+cd "$PBS_O_WORKDIR"
+module load ${MODULES} > /dev/null 2>&1
+
+echo "job $PBS_JOBID on $(sort -u "$PBS_NODEFILE" | tr '\n' ' ') modules: ${MODULES}"
+${COMMANDS}
+echo "$(date +%T) done"

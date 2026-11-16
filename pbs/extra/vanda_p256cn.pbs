@@ -1,0 +1,64 @@
+#!/bin/bash
+# Re-run of everything measured on 4 or 2 nodes whose first run landed partly on
+# GPU nodes (gn-a40-*, which are also in Vanda's cpu_node pool): P256 job
+# 1512738 (cn-066, cn-156, gn-a40-081, gn-a40-087) and E7 128 ranks 1512834
+# (cn-066, gn-a40-081). E7 at 256 ranks on 4 cn nodes ran 0.31 s/step against
+# 0.39 s for the same run in P256, so mixed placements are not comparable.
+# This job pins four cn nodes. It also repeats the concurrent ping-pong between
+# two cn nodes (CONTEND 1512832 used cn-156 + gn-a40-087) and inside one node
+# (that part failed: --host syntax).
+#PBS -N P256CN
+#PBS -P <project>
+#PBS -l select=1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-066+1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-143+1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-146+1:ncpus=72:mpiprocs=72:mem=480gb:host=cn-156
+#PBS -l walltime=01:00:00
+#PBS -l place=scatter:excl
+#PBS -j oe
+#PBS -o results/raw/P256CN.job.log
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a > /dev/null 2>&1
+echo "job $PBS_JOBID on $(sort -u "$PBS_NODEFILE" | tr '\n' ' ') modules: gompi/2023a"
+echo "$(date +%T) e3_p256_mpi"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce mpi --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_mpi.log 2>&1 || echo "FAILED e3_p256_mpi (see results/raw/E3/e3_p256_mpi.log)"
+echo "$(date +%T) e3_p256_ring"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --allreduce ring --alltoall mpi --a2a-wait --exp E3 ) > results/raw/E3/e3_p256_ring.log 2>&1 || echo "FAILED e3_p256_ring (see results/raw/E3/e3_p256_ring.log)"
+echo "$(date +%T) e3_p256_dense"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 1 --batch 16384 --allreduce mpi --steps 15 --exp E3 ) > results/raw/E3/e3_p256_dense.log 2>&1 || echo "FAILED e3_p256_dense (see results/raw/E3/e3_p256_dense.log)"
+echo "$(date +%T) e4_grid_p256"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --capacity 2.0 --a2a-wait --steps 15 --exp E4 --batch 131072 --experts 16 --load results/ckpt/moe_E16_H512_F1024_L2.bin ) > results/raw/E4/e4_grid_p256.log 2>&1 || echo "FAILED e4_grid_p256 (see results/raw/E4/e4_grid_p256.log)"
+echo "$(date +%T) e4_eq_p256"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --capacity 2.0 --a2a-wait --steps 15 --exp E4 --batch 131072 --experts 256 --ep 256 ) > results/raw/E4/e4_eq_p256.log 2>&1 || echo "FAILED e4_eq_p256 (see results/raw/E4/e4_eq_p256.log)"
+echo "$(date +%T) e4_dense_p256"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --capacity 2.0 --a2a-wait --steps 15 --exp E4 --batch 131072 --experts 1 ) > results/raw/E4/e4_dense_p256.log 2>&1 || echo "FAILED e4_dense_p256 (see results/raw/E4/e4_dense_p256.log)"
+echo "$(date +%T) e5_allreduce_p256"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/allreduce_bench ) > results/raw/E5/e5_allreduce_p256.log 2>&1 || echo "FAILED e5_allreduce_p256 (see results/raw/E5/e5_allreduce_p256.log)"
+echo "$(date +%T) e5_a2a_mpi_p256"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --alltoall mpi --a2a-wait --steps 15 --exp E5 ) > results/raw/E5/e5_a2a_mpi_p256.log 2>&1 || echo "FAILED e5_a2a_mpi_p256 (see results/raw/E5/e5_a2a_mpi_p256.log)"
+echo "$(date +%T) e5_a2a_pairwise_p256"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --alltoall pairwise --a2a-wait --steps 15 --exp E5 ) > results/raw/E5/e5_a2a_pairwise_p256.log 2>&1 || echo "FAILED e5_a2a_pairwise_p256 (see results/raw/E5/e5_a2a_pairwise_p256.log)"
+echo "$(date +%T) e8_256_r256_t1"
+( mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --a2a-wait --steps 15 --exp E8 ) > results/raw/E8/e8_256_r256_t1.log 2>&1 || echo "FAILED e8_256_r256_t1 (see results/raw/E8/e8_256_r256_t1.log)"
+echo "$(date +%T) e8_256_r128_t2"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:32:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=2 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --a2a-wait --steps 15 --exp E8 ) > results/raw/E8/e8_256_r128_t2.log 2>&1 || echo "FAILED e8_256_r128_t2 (see results/raw/E8/e8_256_r128_t2.log)"
+echo "$(date +%T) e8_256_r64_t4"
+( mpirun -np 64 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:16:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=4 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --a2a-wait --steps 15 --exp E8 ) > results/raw/E8/e8_256_r64_t4.log 2>&1 || echo "FAILED e8_256_r64_t4 (see results/raw/E8/e8_256_r64_t4.log)"
+echo "$(date +%T) e8_256_r32_t8"
+( mpirun -np 32 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:8:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=8 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --a2a-wait --steps 15 --exp E8 ) > results/raw/E8/e8_256_r32_t8.log 2>&1 || echo "FAILED e8_256_r32_t8 (see results/raw/E8/e8_256_r32_t8.log)"
+echo "$(date +%T) e7_p128_mpi"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --a2a-wait --exp E7 --allreduce mpi ) > results/raw/E7/e7_p128_mpi.log 2>&1 || echo "FAILED e7_p128_mpi (see results/raw/E7/e7_p128_mpi.log)"
+echo "$(date +%T) e7_p128_mpi_zero"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --a2a-wait --exp E7 --allreduce mpi --zero ) > results/raw/E7/e7_p128_mpi_zero.log 2>&1 || echo "FAILED e7_p128_mpi_zero (see results/raw/E7/e7_p128_mpi_zero.log)"
+echo "$(date +%T) e7_p128_ring"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --a2a-wait --exp E7 --allreduce ring ) > results/raw/E7/e7_p128_ring.log 2>&1 || echo "FAILED e7_p128_ring (see results/raw/E7/e7_p128_ring.log)"
+echo "$(date +%T) e7_p128_ring_zero"
+( mpirun -np 128 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1 build/vanda-float/mlp_parallel --data synthetic --experts 16 --capacity 2.0 --batch 16384 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 15 --a2a-wait --exp E7 --allreduce ring --zero ) > results/raw/E7/e7_p128_ring_zero.log 2>&1 || echo "FAILED e7_p128_ring_zero (see results/raw/E7/e7_p128_ring_zero.log)"
+MPI="mpirun --mca pml ob1 --mca btl self,vader,tcp --bind-to none"
+for k in 1 2 4 8 16 32 64; do
+  echo "$(date +%T) inter k=$k"
+  $MPI -np $((2 * k)) --map-by ppr:$k:node build/vanda-float/pingpong --concurrent > results/raw/E0/conc_inter_k$k.log 2>&1
+done
+for k in 1 2 4 8 16 32; do
+  echo "$(date +%T) intra k=$k"
+  $MPI -np $((2 * k)) --map-by ppr:$((2 * k)):node build/vanda-float/pingpong --concurrent > results/raw/E0/conc_intra_k$k.log 2>&1
+done
+echo "$(date +%T) done"

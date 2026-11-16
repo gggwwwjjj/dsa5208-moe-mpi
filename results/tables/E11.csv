@@ -1,0 +1,2 @@
+exp,kind,ranks,threads,ep,groups,data,batch,hidden,ffn,blocks,experts,topk,capacity,optim,timed_steps,t_step_mean,t_step_median,t_step_max,t_compute,t_a2a_wait,t_a2a,t_wait,t_comm,t_optim,t_data,gflops,train_loss,test_acc,aux,imbalance,cv_load,dropped,optim_state_mb,real,log,platform
+E11,ep_mpi_mpi,64,1,16,4,fashion,256,512,1024,2,16,2,1.25,adam,2335,8.402143e-02,8.343844e-02,8.403573e-02,2.631901e-02,0.000000e+00,1.458108e-02,8.411208e-03,1.603157e-02,1.867856e-02,1.617188e-05,84.408,0.236477,0.8799,0.20064,1.9775,0.4014,0.10315,40.379,float,e11_full.log,vanda

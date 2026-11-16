@@ -1,0 +1,33 @@
+#!/bin/bash
+# Serial vs parallel equivalence once at 256 ranks (plan §6), 4 Vanda cn nodes,
+# double precision, 20 SGD steps, small model so the run is short: B = 1024
+# (4 tokens per rank), E = 16, top-2, cf 1.0 (assignments dropped). Expert
+# parallel ep = 16 with D = 16 replicas (both all-to-all and both all-reduce
+# variants, and ZeRO-1), and pure data parallel (--ep 1, 256 capacity groups).
+#PBS -N EQ256
+#PBS -P <project>
+#PBS -l select=4:ncpus=72:mpiprocs=72:mem=500gb
+#PBS -l place=scatter:excl
+#PBS -l walltime=00:20:00
+#PBS -j oe
+#PBS -o results/raw/TEST/eq256.job.log
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a > /dev/null 2>&1
+B=build/vanda-double; T=$(mktemp -d)
+MPI="mpirun -np 256 --mca pml ob1 --mca btl self,vader,tcp --map-by ppr:64:node --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1"
+C="--optim sgd --lr 0.05 --steps 20 --warmup 0 --batch 1024 --hidden 32 --ffn 48 --blocks 2 --data synthetic --experts 16 --topk 2 --capacity 1.0 --aux 0.05"
+echo "job $PBS_JOBID on $(sort -u "$PBS_NODEFILE" | tr '\n' ' ')"
+drop=$($B/mlp_serial $C --groups 16 --dump $T/s16.bin --quiet | sed -n 's/.* dropped=\([0-9.]*\).*/\1/p')
+for v in mpi:mpi pairwise:mpi mpi:ring; do
+  $MPI $B/mlp_parallel $C --ep 16 --alltoall ${v%:*} --allreduce ${v#*:} --dump $T/p.bin --quiet > /dev/null
+  echo "P=256 ep=16 D=16 a2a=${v%:*} ar=${v#*:} (dropped $drop): $($B/compare_params $T/s16.bin $T/p.bin 1e-10)"
+done
+for v in mpi ring; do
+  $MPI $B/mlp_parallel $C --ep 16 --zero --allreduce $v --dump $T/p.bin --quiet > /dev/null
+  echo "P=256 ep=16 D=16 zero-1 ar=$v: $($B/compare_params $T/s16.bin $T/p.bin 1e-10)"
+done
+drop=$($B/mlp_serial $C --groups 256 --dump $T/s256.bin --quiet | sed -n 's/.* dropped=\([0-9.]*\).*/\1/p')
+$MPI $B/mlp_parallel $C --ep 1 --dump $T/p.bin --quiet > /dev/null
+echo "P=256 dp (--ep 1, 256 groups, dropped $drop): $($B/compare_params $T/s256.bin $T/p.bin 1e-10)"
+rm -rf $T; echo "$(date +%T) done"

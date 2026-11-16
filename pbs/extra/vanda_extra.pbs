@@ -1,0 +1,35 @@
+#!/bin/bash
+# One Vanda cn node (exclusive): (1) record the CPU for the report, (2) find the
+# cause of the serial-build vs 1-rank-parallel-build gap in E3 (27.5 vs 23.3 s/step):
+# same problem with the serial build, the serial build compiled with -fopenmp,
+# and the parallel build on one rank, each twice; (3) how much faster the blocked
+# GEMM and one training step get with -march=native (all reported timings use
+# the baseline x86-64 target). Submit from the Project3 directory.
+#PBS -N EXTRA
+#PBS -P <project>
+#PBS -l select=1:ncpus=72:mpiprocs=72:mem=500gb
+#PBS -l place=scatter:excl
+#PBS -l walltime=00:40:00
+#PBS -j oe
+#PBS -o results/raw/EXTRA/EXTRA.job.log
+
+cd "$PBS_O_WORKDIR"
+module load gompi/2023a > /dev/null 2>&1
+mkdir -p results/raw/EXTRA
+echo "job $PBS_JOBID on $(hostname)"; lscpu; free -g | head -2; g++ --version | head -1
+F="-std=c++17 -O3 -Wall -Wextra -Wno-unknown-pragmas -DREAL_T=float"
+make -j16 PLATFORM=vanda BUILD=build/vanda-float-sx CXX="g++ -fopenmp" serial > results/raw/EXTRA/build_sx.log 2>&1 || echo "BUILD sx FAILED"
+make -j16 PLATFORM=vanda BUILD=build/vanda-float-native CXXFLAGS="$F -march=native" serial parallel bench > results/raw/EXTRA/build_native.log 2>&1 || echo "BUILD native FAILED"
+C="--data synthetic --experts 16 --capacity 2.0 --batch 4096 --load results/ckpt/moe_E16_H512_F1024_L2.bin --steps 7 --warmup 1 --exp EXTRA"
+MPI="mpirun -np 1 --mca pml ob1 --mca btl self,vader,tcp --bind-to none -x OMP_PROC_BIND=false -x OMP_NUM_THREADS=1"
+for rep in 1 2; do
+  echo "$(date +%T) rep $rep"
+  build/vanda-float/mlp_serial $C > results/raw/EXTRA/gap_serial_r$rep.log 2>&1
+  OMP_NUM_THREADS=1 build/vanda-float-sx/mlp_serial $C > results/raw/EXTRA/gap_serial_fopenmp_r$rep.log 2>&1
+  $MPI build/vanda-float/mlp_parallel $C > results/raw/EXTRA/gap_parallel_np1_r$rep.log 2>&1
+  build/vanda-float-native/mlp_serial $C > results/raw/EXTRA/native_serial_r$rep.log 2>&1
+done
+OMP_NUM_THREADS=1 build/vanda-float/gemm_bench --max-n 2048 > results/raw/EXTRA/gemm_baseline.log 2>&1
+OMP_NUM_THREADS=1 build/vanda-float-native/gemm_bench --max-n 2048 > results/raw/EXTRA/gemm_native.log 2>&1
+grep -h "RESULT" results/raw/EXTRA/*.log | grep -o "log=.*\|t_step_mean=[^ ]*\|t_compute=[^ ]*\|t_optim=[^ ]*" | paste - - - | head -20
+echo "$(date +%T) done"
